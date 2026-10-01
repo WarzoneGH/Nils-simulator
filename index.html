@@ -36,7 +36,7 @@
 
         const player = {
             x: 200, y: 300, w: 30, h: 50, vx: 0, vy: 0, speed: 5, jump: -13,
-            grounded: false, right: true, stab: false, progress: 0, stabSpd: 0.2, length: 35
+            grounded: false, right: true, stab: false, progress: 0, stabSpd: 0.2, length: 40
         };
 
         const keys = {};
@@ -70,7 +70,7 @@
 
             let curLen = player.length;
             if (player.stab) {
-                player.progress += player.stabSpd; curLen += Math.sin(player.progress * Math.PI) * 25;
+                player.progress += player.stabSpd; curLen += Math.sin(player.progress * Math.PI) * 30;
                 if (player.progress >= 1.0) player.stab = false;
             }
 
@@ -118,11 +118,32 @@
             ctx.fillStyle = "#ffc896"; ctx.beginPath(); ctx.arc(dx + player.w / 2, player.y + 5, 10, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = "#e40000"; ctx.fillRect(dx + 2, player.y - 8, player.w - 4, 6);
 
+            // --- NY DESIGNAKUT FÖR PENNAN ---
             let cy = player.y + player.h / 2 + 5;
-            let curLen = player.length + (player.stab ? Math.sin(player.progress * Math.PI) * 25 : 0);
+            let curLen = player.length + (player.stab ? Math.sin(player.progress * Math.PI) * 30 : 0);
+            
             let bx = player.right ? dx + player.w : dx;
             let tx = player.right ? bx + curLen : bx - curLen;
-            ctx.strokeStyle = "#78461e"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(bx, cy); ctx.lineTo(tx, cy); ctx.stroke();
+            let dirSign = player.right ? 1 : -1;
+
+            // Pennans tjocklek är nu smal (3 pixlar) så den ser ut som en linjal/penna
+            ctx.lineWidth = 3; 
+
+            // 1. Radergummi längst bak (röd)
+            ctx.strokeStyle = "#ff4d4d";
+            ctx.beginPath(); ctx.moveTo(bx, cy); ctx.lineTo(bx + (dirSign * 4), cy); ctx.stroke();
+
+            // 2. Metallring (silver)
+            ctx.strokeStyle = "#cccccc";
+            ctx.beginPath(); ctx.moveTo(bx + (dirSign * 4), cy); ctx.lineTo(bx + (dirSign * 7), cy); ctx.stroke();
+
+            // 3. Pennkroppen (gul kontorspenna)
+            ctx.strokeStyle = "#ffd700";
+            ctx.beginPath(); ctx.moveTo(bx + (dirSign * 7), cy); ctx.lineTo(tx - (dirSign * 6), cy); ctx.stroke();
+
+            // 4. Trä-avsmalning och grafitudd längst fram (svart spets)
+            ctx.strokeStyle = "#000000";
+            ctx.beginPath(); ctx.moveTo(tx - (dirSign * 6), cy); ctx.lineTo(tx, cy); ctx.stroke();
 
             ctx.fillStyle = "#fff"; ctx.font = "22px Arial";
             ctx.fillText("Styr: A/D/Pilar | Hoppa: W/Space | Hugg: Vänsterklick", 20, 40);
