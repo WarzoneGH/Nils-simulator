@@ -1,64 +1,59 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nils Mario Simulator</title>
+    <meta charset="UTF-8"><title>Nils Mario Simulator - Oändlig</title>
     <style>
-        body {
-            margin: 0; padding: 0; background: #222;
-            display: flex; justify-content: center; align-items: center;
-            height: 100vh; color: white; font-family: Arial, sans-serif; overflow: hidden;
-        }
-        canvas { background: #6b8cff; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        body { margin:0; background:#111; display:flex; justify-content:center; align-items:center; height:100vh; font-family:Arial, sans-serif; overflow:hidden; }
+        canvas { background:#5c94fc; box-shadow:0 10px 30px rgba(0,0,0,0.7); }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
     <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        const GRAVITY = 0.6;
-        let cameraX = 0;
-
-        const platforms = [
-            { x: 0, y: 520, w: 1200, h: 80 }, { x: 1400, y: 520, w: 1000, h: 80 },
-            { x: 300, y: 400, w: 150, h: 30 }, { x: 550, y: 320, w: 200, h: 30 },
-            { x: 850, y: 400, w: 150, h: 30 }, { x: 1550, y: 400, w: 250, h: 30 }
-        ];
-
-        const stefans = [
-            { x: 400, y: 450, w: 30, h: 40, speed: 2, dir: 1, hp: 3, maxHp: 3 },
-            { x: 600, y: 250, w: 30, h: 40, speed: 2, dir: 1, hp: 3, maxHp: 3 },
-            { x: 1000, y: 450, w: 30, h: 40, speed: 2, dir: 1, hp: 3, maxHp: 3 },
-            { x: 1600, y: 350, w: 30, h: 40, speed: 2, dir: 1, hp: 3, maxHp: 3 }
-        ];
-
-        const player = {
-            x: 200, y: 300, w: 30, h: 50, vx: 0, vy: 0, speed: 5, jump: -13,
-            grounded: false, right: true, stab: false, progress: 0, stabSpd: 0.2, length: 40
-        };
-
+        const canvas = document.getElementById("gameCanvas"), ctx = canvas.getContext("2d");
+        let cameraX = 0, scoreDistance = 0, stefansKilled = 0, nextPlatformX = 900, platforms = [{x:0, y:500, w:900, h:100}], stefans = [], decor = [];
+        const player = { x:200, y:300, w:30, h:50, vx:0, vy:0, speed:6, jump:-13.5, grounded:false, right:true, stab:false, progress:0, stabSpd:0.25, length:42 };
         const keys = {};
+
+        for(let i=0; i<5; i++) genDecor(i * 300);
+
+        function genDecor(sx) {
+            let ic = Math.random() > 0.5;
+            decor.push({ x:sx+Math.random()*100, y:ic?50+Math.random()*150:470, w:ic?80+Math.random()*60:40+Math.random()*40, h:ic?40:30, type:ic?'c':'b' });
+        }
+
+        function genWorld() {
+            while (nextPlatformX < player.x + 1200) {
+                let gap = 100 + Math.random()*130, w = 200 + Math.random()*400, y = 350 + Math.random()*150;
+                let np = { x:nextPlatformX + gap, y:y, w:w, h:100 };
+                platforms.push(np);
+                if (Math.random() < 0.7 && w > 250) {
+                    stefans.push({ x:np.x+50+Math.random()*(w-100), y:y-40, w:30, h:40, speed:1.5+Math.random()*1.5, dir:Math.random()>0.5?1:-1, hp:3, maxHp:3, plat:np });
+                }
+                if (Math.random() < 0.6) genDecor(nextPlatformX + gap);
+                nextPlatformX += gap + w;
+            }
+            platforms = platforms.filter(p => p.x + p.w > cameraX - 200);
+            stefans = stefans.filter(s => s.x > cameraX - 200);
+            decor = decor.filter(d => d.x + d.w > cameraX - 200);
+        }
+
         window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
         window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
-        window.addEventListener("mousedown", e => {
-            if (e.button === 0 && !player.stab) { player.stab = true; player.progress = 0; }
-        });
+        window.addEventListener("mousedown", e => { if (e.button === 0 && !player.stab) { player.stab = true; player.progress = 0; } });
 
         function update() {
-            player.vx = 0;
+            genWorld(); player.vx = 0;
             if (keys['a'] || keys['arrowleft']) { player.vx = -player.speed; player.right = false; }
             if (keys['d'] || keys['arrowright']) { player.vx = player.speed; player.right = true; }
             if ((keys['w'] || keys[' '] || keys['arrowup']) && player.grounded) { player.vy = player.jump; player.grounded = false; }
+            player.vy += 0.6; player.x += player.vx; if (player.x < cameraX) player.x = cameraX;
 
-            player.vy += GRAVITY; player.x += player.vx;
             for (let p of platforms) {
                 if (player.x < p.x + p.w && player.x + player.w > p.x && player.y < p.y + p.h && player.y + player.h > p.y) {
                     if (player.vx > 0) player.x = p.x - player.w; else if (player.vx < 0) player.x = p.x + p.w;
                 }
             }
-
             player.y += player.vy; player.grounded = false;
             for (let p of platforms) {
                 if (player.x < p.x + p.w && player.x + player.w > p.x && player.y < p.y + p.h && player.y + player.h > p.y) {
@@ -66,88 +61,65 @@
                     else if (player.vy < 0) { player.y = p.y + p.h; player.vy = 0; }
                 }
             }
-            if (player.y > 600) { player.x = 200; player.y = 300; player.vy = 0; }
+            if (player.y > 600) { player.x = cameraX + 50; player.y = 100; player.vy = 0; }
+            let cd = Math.floor(player.x / 10); if (cd > scoreDistance) scoreDistance = cd;
 
-            let curLen = player.length;
-            if (player.stab) {
-                player.progress += player.stabSpd; curLen += Math.sin(player.progress * Math.PI) * 30;
-                if (player.progress >= 1.0) player.stab = false;
-            }
-
-            let cy = player.y + player.h / 2;
-            let tipX = player.right ? player.x + player.w + curLen : player.x - curLen;
+            let cl = player.length;
+            if (player.stab) { player.progress += player.stabSpd; cl += Math.sin(player.progress * Math.PI) * 35; if (player.progress >= 1.0) player.stab = false; }
+            let cy = player.y + player.h / 2, tipX = player.right ? player.x + player.w + cl : player.x - cl;
 
             if (player.stab && player.progress <= player.stabSpd * 1.5) {
                 for (let i = stefans.length - 1; i >= 0; i--) {
-                    let e = stefans[i];
-                    let hx = player.right ? player.x + player.w : tipX;
-                    if (hx < e.x + e.w && hx + curLen > e.x && cy - 5 < e.y + e.h && cy + 5 > e.y) {
-                        e.hp -= 1; player.stab = false;
-                        if (e.hp <= 0) stefans.splice(i, 1);
-                        break;
+                    let e = stefans[i], hx = player.right ? player.x + player.w : tipX;
+                    if (hx < e.x + e.w && hx + cl > e.x && cy - 10 < e.y + e.h && cy + 10 > e.y) {
+                        e.hp -= 1; player.stab = false; if (e.hp <= 0) { stefans.splice(i, 1); stefansKilled++; } break;
                     }
                 }
             }
-
             for (let s of stefans) {
-                s.x += s.speed * s.dir; if (s.x < 100 || s.x > 2000) s.dir *= -1;
-                s.y += 4;
-                for (let p of platforms) {
-                    if (s.x < p.x + p.w && s.x + s.w > p.x && s.y < p.y + p.h && s.y + s.h > p.y) s.y = p.y - s.h;
+                s.x += s.speed * s.dir;
+                if (s.plat) {
+                    if (s.x <= s.plat.x) { s.x = s.plat.x; s.dir = 1; }
+                    else if (s.x + s.w >= s.plat.x + s.plat.w) { s.x = s.plat.x + s.plat.w - s.w; s.dir = -1; }
                 }
             }
-
-            if (player.x - cameraX > 500) cameraX = player.x - 500;
-            else if (player.x - cameraX < 200) cameraX = Math.max(0, player.x - 200);
+            if (player.x - cameraX > 400) cameraX = player.x - 400;
         }
 
         function draw() {
-            ctx.fillStyle = "#6b8cff"; ctx.fillRect(0, 0, 800, 600);
+            ctx.clearRect(0,0,800,600);
+            for (let d of decor) {
+                ctx.fillStyle = d.type === 'c' ? 'rgba(255,255,255,0.85)' : '#007800'; ctx.beginPath();
+                let dx = d.x - cameraX; if (d.type === 'c') { ctx.arc(dx+20, d.y+15, 20, 0, 7); ctx.arc(dx+45, d.y+10, 25, 0, 7); ctx.arc(dx+70, d.y+15, 20, 0, 7); }
+                else { ctx.arc(dx+10, d.y+15, 15, 0, 7); ctx.arc(dx+25, d.y+10, 18, 0, 7); ctx.arc(dx+40, d.y+15, 15, 0, 7); } ctx.fill();
+            }
             for (let p of platforms) {
-                ctx.fillStyle = "#00a800"; ctx.fillRect(p.x - cameraX, p.y, p.w, p.h);
-                ctx.strokeStyle = "#000"; ctx.strokeRect(p.x - cameraX, p.y, p.w, p.h);
+                let dx = p.x - cameraX; ctx.fillStyle = "#50d810"; ctx.fillRect(dx, p.y, p.w, 16); ctx.fillStyle = "#944400"; ctx.fillRect(dx, p.y + 16, p.w, p.h - 16);
+                ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.strokeRect(dx, p.y, p.w, p.h); ctx.fillStyle = "#602000";
+                for(let bx=0; bx<p.w; bx+=40) ctx.fillRect(dx + bx + (p.y%20), p.y + 25, 4, p.h);
             }
             for (let s of stefans) {
                 let dx = s.x - cameraX; ctx.fillStyle = "#ff6464"; ctx.fillRect(dx, s.y + 15, s.w, s.h - 15);
-                ctx.fillStyle = "#a84400"; ctx.beginPath(); ctx.arc(dx + s.w / 2, s.y + 10, 12, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = "#000"; ctx.fillRect(dx, s.y - 12, 30, 6);
-                ctx.fillStyle = "#f00"; ctx.fillRect(dx, s.y - 12, (30 / s.maxHp) * s.hp, 6);
+                ctx.fillStyle = "#a84400"; ctx.beginPath(); ctx.arc(dx + s.w / 2, s.y + 10, 12, 0, 7); ctx.fill();
+                ctx.fillStyle = "#000"; let sex = dx + (s.dir > 0 ? s.w/2 + 3 : s.w/2 - 5); ctx.fillRect(sex, s.y + 7, 3, 4);
+                ctx.fillRect(dx, s.y - 12, 30, 6); ctx.fillStyle = "#f00"; ctx.fillRect(dx, s.y - 12, (30 / s.maxHp) * s.hp, 6);
             }
-            let dx = player.x - cameraX; ctx.fillStyle = "#0000b4"; ctx.fillRect(dx, player.y + 25, player.w, 25);
-            ctx.fillStyle = "#e40000"; ctx.fillRect(dx, player.y + 10, player.w, 15);
-            ctx.fillStyle = "#ffc896"; ctx.beginPath(); ctx.arc(dx + player.w / 2, player.y + 5, 10, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#e40000"; ctx.fillRect(dx + 2, player.y - 8, player.w - 4, 6);
+            let pdx = player.x - cameraX; ctx.fillStyle = "#0000b4"; ctx.fillRect(pdx, player.y + 25, player.w, 25);
+            ctx.fillStyle = "#e40000"; ctx.fillRect(pdx, player.y + 10, player.w, 15);
+            ctx.fillStyle = "#ffc896"; ctx.beginPath(); ctx.arc(pdx + player.w / 2, player.y + 5, 10, 0, 7); ctx.fill();
+            ctx.fillStyle = "#e40000"; ctx.fillRect(pdx + 2, player.y - 8, player.w - 4, 6);
+            ctx.fillStyle = "#000"; let pex = pdx + (player.right ? player.w / 2 + 3 : player.w / 2 - 5); ctx.beginPath(); ctx.arc(pex, player.y + 3, 2, 0, 7); ctx.fill();
 
-            // --- NY DESIGNAKUT FÖR PENNAN ---
-            let cy = player.y + player.h / 2 + 5;
-            let curLen = player.length + (player.stab ? Math.sin(player.progress * Math.PI) * 30 : 0);
-            
-            let bx = player.right ? dx + player.w : dx;
-            let tx = player.right ? bx + curLen : bx - curLen;
-            let dirSign = player.right ? 1 : -1;
+            let cy = player.y + player.h / 2 + 5, cl = player.length + (player.stab ? Math.sin(player.progress * Math.PI) * 35 : 0);
+            let bx = player.right ? pdx + player.w : pdx, tx = player.right ? bx + cl : bx - cl, ds = player.right ? 1 : -1;
+            ctx.lineWidth = 3; ctx.strokeStyle = "#ff4d4d"; ctx.beginPath(); ctx.moveTo(bx, cy); ctx.lineTo(bx + (ds * 4), cy); ctx.stroke();
+            ctx.strokeStyle = "#cccccc"; ctx.beginPath(); ctx.moveTo(bx + (ds * 4), cy); ctx.lineTo(bx + (ds * 7), cy); ctx.stroke();
+            ctx.strokeStyle = "#ffd700"; ctx.beginPath(); ctx.moveTo(bx + (ds * 7), cy); ctx.lineTo(tx - (ds * 6), cy); ctx.stroke();
+            ctx.strokeStyle = "#000000"; ctx.beginPath(); ctx.moveTo(tx - (ds * 6), cy); ctx.lineTo(tx, cy); ctx.stroke();
 
-            // Pennans tjocklek är nu smal (3 pixlar) så den ser ut som en linjal/penna
-            ctx.lineWidth = 3; 
-
-            // 1. Radergummi längst bak (röd)
-            ctx.strokeStyle = "#ff4d4d";
-            ctx.beginPath(); ctx.moveTo(bx, cy); ctx.lineTo(bx + (dirSign * 4), cy); ctx.stroke();
-
-            // 2. Metallring (silver)
-            ctx.strokeStyle = "#cccccc";
-            ctx.beginPath(); ctx.moveTo(bx + (dirSign * 4), cy); ctx.lineTo(bx + (dirSign * 7), cy); ctx.stroke();
-
-            // 3. Pennkroppen (gul kontorspenna)
-            ctx.strokeStyle = "#ffd700";
-            ctx.beginPath(); ctx.moveTo(bx + (dirSign * 7), cy); ctx.lineTo(tx - (dirSign * 6), cy); ctx.stroke();
-
-            // 4. Trä-avsmalning och grafitudd längst fram (svart spets)
-            ctx.strokeStyle = "#000000";
-            ctx.beginPath(); ctx.moveTo(tx - (dirSign * 6), cy); ctx.lineTo(tx, cy); ctx.stroke();
-
-            ctx.fillStyle = "#fff"; ctx.font = "22px Arial";
-            ctx.fillText("Styr: A/D/Pilar | Hoppa: W/Space | Hugg: Vänsterklick", 20, 40);
-            ctx.fillText("Stefans kvar: " + stefans.length, 20, 70);
+            ctx.font = "bold 20px Arial"; ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillText(`Distans: ${scoreDistance}m`, 22, 42); ctx.fillText(`Utplånade Stefans: ${stefansKilled}`, 22, 72);
+            ctx.fillStyle = "#fff"; ctx.fillText(`Distans: ${scoreDistance}m`, 20, 40); ctx.fillStyle = "#ffd700"; ctx.fillText(`Utplånade Stefans: ${stefansKilled}`, 20, 70);
+            ctx.font = "14px Arial"; ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.fillText("Styr: A/D / Pilar  |  Hoppa: W / Space  |  Hugg: Vänsterklick", 200, 585);
         }
 
         function loop() { update(); draw(); requestAnimationFrame(loop); }
