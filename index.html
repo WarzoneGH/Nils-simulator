@@ -1,174 +1,143 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-    <meta charset="UTF-8">
-    <title>Nils Mario 1-1</title>
+    <meta charset="UTF-8"><title>Nils Mario Simulator</title>
     <style>
-        body { margin: 0; background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial; overflow: hidden; }
-        canvas { background: #5c94fc; box-shadow: 0 10px 30px #000; }
+        body { margin:0; background:#111; display:flex; justify-content:center; align-items:center; height:100vh; font-family:Arial; overflow:hidden; }
+        canvas { background:#5c94fc; box-shadow:0 10px 30px #000; }
     </style>
 </head>
 <body>
     <canvas id="c" width="800" height="600"></canvas>
-    <script>
-        const canvas = document.getElementById("c");
-        const ctx = canvas.getContext("2d");
-        let camX = 0, killed = 0, score = 0;
+<script>
+const canvas = document.getElementById("c"), ctx = canvas.getContext("2d");
+let state = "MENU", lvl = 1, camX = 0, score = 0;
+let unl = JSON.parse(localStorage.getItem("nm_prog")) ||;
 
-        // Här är hela din fasta bana (World 1-1 layout)
-        const P = [
-            {x: 0, y: 500, w: 900, h: 100, t: 'g'},
-            {x: 1000, y: 500, w: 600, h: 100, t: 'g'},
-            {x: 1750, y: 500, w: 1200, h: 100, t: 'g'},
-            {x: 250, y: 360, w: 40, h: 40, t: 'q'},
-            {x: 370, y: 360, w: 40, h: 40, t: 'b'},
-            {x: 410, y: 360, w: 40, h: 40, t: 'q'},
-            {x: 450, y: 360, w: 40, h: 40, t: 'b'},
-            {x: 490, y: 360, w: 40, h: 40, t: 'q'},
-            {x: 450, y: 220, w: 40, h: 40, t: 'q'},
-            {x: 700, y: 420, w: 60, h: 80, t: 'p'},
-            {x: 1200, y: 380, w: 60, h: 120, t: 'p'},
-            {x: 1450, y: 340, w: 60, h: 160, t: 'p'},
-            {x: 2100, y: 460, w: 40, h: 40, t: 'b'},
-            {x: 2140, y: 420, w: 40, h: 80, t: 'b'},
-            {x: 2180, y: 380, w: 40, h: 120, t: 'b'},
-            {x: 2220, y: 340, w: 40, h: 160, t: 'b'},
-            {x: 2350, y: 340, w: 40, h: 160, t: 'b'},
-            {x: 2390, y: 380, w: 40, h: 120, t: 'b'},
-            {x: 2430, y: 420, w: 40, h: 80, t: 'b'},
-            {x: 2470, y: 460, w: 40, h: 40, t: 'b'},
-            {x: 2700, y: 150, w: 10, h: 350, t: 'f'}
-        ];
+const pl = { x: 100, y: 300, w: 30, h: 50, vx: 0, vy: 0, spd: 5.5, jmp: -13, g: false, r: true, st: false, pr: 0 };
+const k = {}, D = [{x: 100, y: 100}, {x: 500, y: 80}, {x: 1200, y: 90}];
+let P = [], S = [];
 
-        // Stefan-monstren placerade på sina ställen
-        const S = [
-            {x: 300, y: 460, w: 30, h: 40, s: 2, d: -1, hp: 3, x1: 50, x2: 650},
-            {x: 800, y: 460, w: 30, h: 40, s: 1.5, d: -1, hp: 3, x1: 770, x2: 890},
-            {x: 1100, y: 460, w: 30, h: 40, s: 2, d: 1, hp: 3, x1: 1010, x2: 1190},
-            {x: 1350, y: 460, w: 30, h: 40, s: 2, d: -1, hp: 3, x1: 1270, x2: 1410}
-        ];
+const lvls = {
+    1: {
+        P: [{x:0,y:500,w:900,h:100,t:'g'},{x:1000,y:500,w:600,h:100,t:'g'},{x:1750,y:500,w:1200,h:100,t:'g'},{x:250,y:360,w:40,h:40,t:'q'},{x:370,y:360,w:40,h:40,t:'b'},{x:700,y:420,w:60,h:80,t:'p'},{x:2700,y:150,w:10,h:350,t:'f'}],
+        S: [{x:300,y:460,w:30,h:40,s:2,d:-1,hp:3,x1:50,x2:650}]
+    },
+    2: {
+        P: [{x:0,y:500,w:600,h:100,t:'g'},{x:750,y:420,w:200,h:40,t:'b'},{x:1100,y:340,w:200,h:40,t:'b'},{x:1450,y:460,w:800,h:140,t:'g'},{x:2100,y:150,w:10,h:350,t:'f'}],
+        S: [{x:200,y:460,w:30,h:40,s:3,d:1,hp:3,x1:20,x2:550}]
+    },
+    3: {
+        P: [{x:0,y:500,w:400,h:100,t:'g'},{x:500,y:500,w:400,h:100,t:'g'},{x:1000,y:500,w:400,h:100,t:'g'},{x:1500,y:500,w:400,h:100,t:'g'},{x:650,y:340,w:60,h:160,t:'p'},{x:1800,y:150,w:10,h:350,t:'f'}],
+        S: [{x:150,y:460,w:30,h:40,s:3.5,d:-1,hp:3,x1:20,x2:360}]
+    }
+};
 
-        const D = [{x: 100, y: 100}, {x: 500, y: 80}, {x: 950, y: 120}, {x: 1600, y: 90}];
-        const pl = {x: 100, y: 300, w: 30, h: 50, vx: 0, vy: 0, spd: 5.5, jmp: -13, g: false, r: true, st: false, pr: 0};
-        const k = {};
+function stLvl(l) {
+    lvl = l; P = JSON.parse(JSON.stringify(lvls[l].P)); S = JSON.parse(JSON.stringify(lvls[l].S));
+    pl.x = 100; pl.y = 300; pl.vx = 0; pl.vy = 0; camX = 0; state = "PLAY";
+}
 
-        window.addEventListener("keydown", e => k[e.key.toLowerCase()] = true);
-        window.addEventListener("keyup", e => k[e.key.toLowerCase()] = false);
-        window.addEventListener("mousedown", e => {
-            if (e.button === 0 && !pl.st) { pl.st = true; pl.pr = 0; }
-        });
-
-        function update() {
-            pl.vx = 0;
-            if (k['a'] || k['arrowleft']) { pl.vx = -pl.spd; pl.r = false; }
-            if (k['d'] || k['arrowright']) { pl.vx = pl.spd; pl.r = true; }
-            if ((k['w'] || k[' '] || k['arrowup']) && pl.g) { pl.vy = pl.jmp; pl.g = false; }
-            
-            pl.vy += 0.65; 
-            pl.x += pl.vx; 
-            if (pl.x < camX) pl.x = camX;
-
-            for (let p of P) {
-                if (p.t !== 'f' && pl.x < p.x + p.w && pl.x + pl.w > p.x && pl.y < p.y + p.h && pl.y + pl.h > p.y) {
-                    if (pl.vx > 0) pl.x = p.x - pl.w; else if (pl.vx < 0) pl.x = p.x + pl.w;
-                }
-            }
-
-            pl.y += pl.vy; 
-            pl.g = false;
-
-            for (let p of P) {
-                if (pl.x < p.x + p.w && pl.x + pl.w > p.x && pl.y < p.y + p.h && pl.y + pl.h > p.y) {
-                    if (p.t === 'f') { alert("Du vann!"); pl.x = 100; pl.y = 300; camX = 0; return; }
-                    if (pl.vy > 0) { pl.y = p.y - pl.h; pl.vy = 0; pl.g = true; } 
-                    else if (pl.vy < 0) { pl.y = p.y + p.h; pl.vy = 0; }
-                }
-            }
-
-            if (pl.y > 600) { pl.x = 100; pl.y = 300; pl.vy = 0; camX = 0; }
-
-            let cl = 42;
-            if (pl.st) {
-                pl.pr += 0.25; 
-                cl += Math.sin(pl.pr * Math.PI) * 35;
-                if (pl.pr >= 1.0) pl.st = false;
-            }
-
-            let cy = pl.y + pl.h / 2, tx = pl.r ? pl.x + pl.w + cl : pl.x - cl;
-
-            if (pl.st && pl.pr <= 0.375) {
-                for (let i = S.length - 1; i >= 0; i--) {
-                    let e = S[i], hx = pl.r ? pl.x + pl.w : tx;
-                    if (hx < e.x + e.w && hx + cl > e.x && cy - 10 < e.y + e.h && cy + 10 > e.y) {
-                        e.hp -= 1; pl.st = false;
-                        if (e.hp <= 0) { S.splice(i, 1); killed++; score += 100; }
-                        break;
-                    }
-                }
-            }
-
-            for (let s of S) {
-                s.x += s.s * s.d;
-                if (s.x <= s.x1) { s.x = s.x1; s.d = 1; } 
-                else if (s.x >= s.x2) { s.x = s.x2; s.d = -1; }
-            }
-
-            if (pl.x - camX > 400) camX = pl.x - 400;
+window.addEventListener("keydown", e => { if(state==="PLAY") k[e.key.toLowerCase()] = true; });
+window.addEventListener("keyup", e => { if(state==="PLAY") k[e.key.toLowerCase()] = false; });
+canvas.addEventListener("mousedown", e => {
+    const r = canvas.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+    if (state === "MENU") {
+        for (let i = 1; i <= 3; i++) {
+            if (mx >= 300 && mx <= 500 && my >= 200 + (i-1)*80 && my <= 250 + (i-1)*80 && unl.includes(i)) stLvl(i);
         }
+    } else if (state === "PLAY" && e.button === 0 && !pl.st) {
+        pl.st = true; pl.pr = 0;
+    }
+});
 
-        function draw() {
-            ctx.clearRect(0, 0, 800, 600);
-            ctx.fillStyle = 'rgba(255,255,255,0.8)';
-            
-            for (let d of D) {
-                let dx = d.x - camX;
-                ctx.beginPath(); ctx.arc(dx + 20, d.y + 15, 20, 0, 7); ctx.arc(dx + 45, d.y + 10, 25, 0, 7); ctx.arc(dx + 70, d.y + 15, 20, 0, 7); ctx.fill();
-            }
-
-            for (let p of P) {
-                let dx = p.x - camX;
-                if (p.t === 'g') {
-                    ctx.fillStyle = "#50d810"; ctx.fillRect(dx, p.y, p.w, 16); ctx.fillStyle = "#944400"; ctx.fillRect(dx, p.y + 16, p.w, p.h - 16);
-                } else if (p.t === 'b') {
-                    ctx.fillStyle = "#d86010"; ctx.fillRect(dx, p.y, p.w, p.h); ctx.strokeStyle = "#000"; ctx.strokeRect(dx, p.y, p.w, p.h);
-                } else if (p.t === 'q') {
-                    ctx.fillStyle = "#fcc018"; ctx.fillRect(dx, p.y, p.w, p.h); ctx.fillStyle = "#fff"; ctx.font = "bold 24px Arial"; ctx.fillText("?", dx + 14, p.y + 28);
-                } else if (p.t === 'p') {
-                    ctx.fillStyle = "#00a800"; ctx.fillRect(dx, p.y, p.w, p.h); ctx.fillStyle = "#00d800"; ctx.fillRect(dx, p.y, 10, p.h); ctx.strokeRect(dx, p.y, p.w, p.h);
-                } else if (p.t === 'f') {
-                    ctx.fillStyle = "#fff"; ctx.fillRect(dx, p.y, p.w, p.h); ctx.fillStyle = "#e40000"; ctx.fillRect(dx - 30, p.y + 10, 30, 20);
-                }
-                if (p.t !== 'f' && p.t !== 'p') { ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.strokeRect(dx, p.y, p.w, p.h); }
-            }
-
-            for (let s of S) {
-                let dx = s.x - camX;
-                ctx.fillStyle = "#ff6464"; ctx.fillRect(dx, s.y + 15, s.w, s.h - 15);
-                ctx.fillStyle = "#a84400"; ctx.beginPath(); ctx.arc(dx + s.w / 2, s.y + 10, 12, 0, 7); ctx.fill();
-                ctx.fillStyle = "#000"; ctx.fillRect(dx + (s.d > 0 ? s.w / 2 + 3 : s.w / 2 - 5), s.y + 7, 3, 4);
-                ctx.fillRect(dx, s.y - 12, 30, 6); ctx.fillStyle = "#f00"; ctx.fillRect(dx, s.y - 12, (30 / 3) * s.hp, 6);
-            }
-
-            let pdx = pl.x - camX;
-            ctx.fillStyle = "#0000b4"; ctx.fillRect(pdx, pl.y + 25, pl.w, 25);
-            ctx.fillStyle = "#e40000"; ctx.fillRect(pdx, pl.y + 10, pl.w, 15);
-            ctx.fillStyle = "#ffc896"; ctx.beginPath(); ctx.arc(pdx + pl.w / 2, pl.y + 5, 10, 0, 7); ctx.fill();
-            ctx.fillStyle = "#e40000"; ctx.fillRect(pdx + 2, pl.y - 8, pl.w - 4, 6);
-            ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(pdx + (pl.r ? pl.w / 2 + 3 : pl.w / 2 - 5), pl.y + 3, 2, 0, 7); ctx.fill();
-
-            let cy = pl.y + pl.h / 2 + 5, cl = 42 + (pl.st ? Math.sin(pl.pr * Math.PI) * 35 : 0), bx = pl.r ? pdx + pl.w : pdx, tx = pl.r ? bx + cl : bx - cl, ds = pl.r ? 1 : -1;
-            ctx.lineWidth = 3; 
-            ctx.strokeStyle = "#ff4d4d"; ctx.beginPath(); ctx.moveTo(bx, cy); ctx.lineTo(bx + (ds * 4), cy); ctx.stroke();
-            ctx.strokeStyle = "#cccccc"; ctx.beginPath(); ctx.moveTo(bx + (ds * 4), cy); ctx.lineTo(bx + (ds * 7), cy); ctx.stroke();
-            ctx.strokeStyle = "#ffd700"; ctx.beginPath(); ctx.moveTo(bx + (ds * 7), cy); ctx.lineTo(tx - (ds * 6), cy); ctx.stroke();
-            ctx.strokeStyle = "#000"; ctx.beginPath(); ctx.moveTo(tx - (ds * 6), cy); ctx.lineTo(tx, cy); ctx.stroke();
-
-            ctx.font = "bold 20px Arial"; ctx.fillStyle = "#fff"; ctx.fillText(`POÄNG: ${score}`, 20, 40); 
-            ctx.fillStyle = "#ffd700"; ctx.fillText(`STEFANS BESEGRADE: ${killed}`, 20, 70);
+function update() {
+    if (state !== "PLAY") return; pl.vx = 0;
+    if (k['a'] || k['arrowleft']) { pl.vx = -pl.spd; pl.r = false; }
+    if (k['d'] || k['arrowright']) { pl.vx = pl.spd; pl.r = true; }
+    if ((k['w'] || k[' '] || k['arrowup']) && pl.g) { pl.vy = pl.jmp; pl.g = false; }
+    
+    pl.vy += 0.65; pl.x += pl.vx; if (pl.x < camX) pl.x = camX;
+    
+    for (let p of P) {
+        if (p.t !== 'f' && pl.x < p.x + p.w && pl.x + pl.w > p.x && pl.y < p.y + p.h && pl.y + pl.h > p.y) {
+            if (pl.vx > 0) pl.x = p.x - pl.w; else if (pl.vx < 0) pl.x = p.x + p.w;
         }
+    }
+    pl.y += pl.vy; pl.g = false;
+    for (let p of P) {
+        if (pl.x < p.x + p.w && pl.x + pl.w > p.x && pl.y < p.y + p.h && pl.y + pl.h > p.y) {
+            if (p.t === 'f') {
+                alert(`Klarade nivå ${lvl}!`);
+                if (lvl < 3 && !unl.includes(lvl + 1)) { unl.push(lvl + 1); localStorage.setItem("nm_prog", JSON.stringify(unl)); }
+                state = "MENU"; return;
+            }
+            if (pl.vy > 0) { pl.y = p.y - pl.h; pl.vy = 0; pl.g = true; } 
+            else if (pl.vy < 0) { pl.y = p.y + p.h; pl.vy = 0; }
+        }
+    }
+    if (pl.y > 600) stLvl(lvl);
+    
+    let cl = 42; if (pl.st) { pl.pr += 0.25; cl += Math.sin(pl.pr * Math.PI) * 35; if (pl.pr >= 1.0) pl.st = false; }
+    let cy = pl.y + pl.h / 2, tx = pl.r ? pl.x + pl.w + cl : pl.x - cl;
+    
+    if (pl.st && pl.pr <= 0.375) {
+        for (let i = S.length - 1; i >= 0; i--) {
+            let e = S[i], hx = pl.r ? pl.x + pl.w : tx;
+            if (hx < e.x + e.w && hx + cl > e.x && cy - 10 < e.y + e.h && cy + 10 > e.y) {
+                e.hp -= 1; pl.st = false; if (e.hp <= 0) { S.splice(i, 1); score += 100; } break;
+            }
+        }
+    }
+    for (let s of S) { s.x += s.s * s.d; if (s.x <= s.x1) { s.x = s.x1; s.d = 1; } else if (s.x >= s.x2) { s.x = s.x2; s.d = -1; } }
+    if (pl.x - camX > 400) camX = pl.x - 400;
+}
 
-        function loop() { update(); draw(); requestAnimationFrame(loop); }
-        loop();
-    </script>
+function draw() {
+    ctx.clearRect(0, 0, 800, 600);
+    if (state === "MENU") {
+        ctx.fillStyle = "#fff"; ctx.font = "bold 36px Arial"; ctx.fillText("NILS MARIO SIMULATOR", 190, 100);
+        ctx.font = "20px Arial"; ctx.fillText("Välj en nivå:", 340, 160);
+        for (let i = 1; i <= 3; i++) {
+            let un = unl.includes(i); ctx.fillStyle = un ? "#00a800" : "#777"; ctx.fillRect(300, 200 + (i-1)*80, 200, 50);
+            ctx.fillStyle = "#fff"; ctx.font = "bold 20px Arial"; ctx.fillText(`NIVÅ ${i}` + (un ? "" : " 🔒"), 350, 232 + (i-1)*80);
+        }
+    } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        for (let d of D) { let dx = d.x - camX; ctx.beginPath(); ctx.arc(dx+20, d.y+15, 20, 0, 7); ctx.arc(dx+45, d.y+10, 25, 0, 7); ctx.arc(dx+70, d.y+15, 20, 0, 7); ctx.fill(); }
+        for (let p of P) {
+            let dx = p.x - camX;
+            if (p.t === 'g') { ctx.fillStyle = "#50d810"; ctx.fillRect(dx, p.y, p.w, 16); ctx.fillStyle = "#944400"; ctx.fillRect(dx, p.y + 16, p.w, p.h - 16); } 
+            else if (p.t === 'b') { ctx.fillStyle = "#d86010"; ctx.fillRect(dx, p.y, p.w, p.h); } 
+            else if (p.t === 'q') { ctx.fillStyle = "#fcc018"; ctx.fillRect(dx, p.y, p.w, p.h); ctx.fillStyle = "#fff"; ctx.font = "bold 24px Arial"; ctx.fillText("?", dx + 14, p.y + 28); } 
+            else if (p.t === 'p') { ctx.fillStyle = "#00a800"; ctx.fillRect(dx, p.y, p.w, p.h); } 
+            else if (p.t === 'f') { ctx.fillStyle = "#fff"; ctx.fillRect(dx, p.y, p.w, p.h); ctx.fillStyle = "#e40000"; ctx.fillRect(dx - 30, p.y + 10, 30, 20); }
+            if (p.t !== 'f' && p.t !== 'p') { ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.strokeRect(dx, p.y, p.w, p.h); }
+        }
+        for (let s of S) {
+            let dx = s.x - camX; ctx.fillStyle = "#ff6464"; ctx.fillRect(dx, s.y + 15, s.w, s.h - 15);
+            ctx.fillStyle = "#a84400"; ctx.beginPath(); ctx.arc(dx + s.w / 2, s.y + 10, 12, 0, 7); ctx.fill();
+            ctx.fillStyle = "#000"; ctx.fillRect(dx + (s.d > 0 ? s.w / 2 + 3 : s.w / 2 - 5), s.y + 7, 3, 4);
+            ctx.fillRect(dx, s.y - 12, 30, 6); ctx.fillStyle = "#f00"; ctx.fillRect(dx, s.y - 12, (30 / 3) * s.hp, 6);
+        }
+        let pdx = pl.x - camX; ctx.fillStyle = "#0000b4"; ctx.fillRect(pdx, pl.y + 25, pl.w, 25);
+        ctx.fillStyle = "#e40000"; ctx.fillRect(pdx, pl.y + 10, pl.w, 15);
+        ctx.fillStyle = "#ffc896"; ctx.beginPath(); ctx.arc(pdx + pl.w / 2, pl.y + 5, 10, 0, 7); ctx.fill();
+        ctx.fillStyle = "#e40000"; ctx.fillRect(pdx + 2, pl.y - 8, pl.w - 4, 6);
+        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(pdx + (pl.r ? pl.w / 2 + 3 : pl.w / 2 - 5), pl.y + 3, 2, 0, 7); ctx.fill();
+
+        let cy = pl.y + pl.h / 2 + 5, cl = 42 + (pl.st ? Math.sin(pl.pr * Math.PI) * 35 : 0), bx = pl.r ? pdx + pl.w : pdx, tx = pl.r ? bx + cl : bx - cl, ds = pl.r ? 1 : -1;
+        ctx.lineWidth = 3; ctx.strokeStyle = "#ff4d4d"; ctx.beginPath(); ctx.moveTo(bx, cy); ctx.lineTo(bx + (ds * 4), cy); ctx.stroke();
+        ctx.strokeStyle = "#cccccc"; ctx.beginPath(); ctx.moveTo(bx + (ds * 4), cy); ctx.lineTo(bx + (ds * 7), cy); ctx.stroke();
+        ctx.strokeStyle = "#ffd700"; ctx.beginPath(); ctx.moveTo(bx + (ds * 7), cy); ctx.lineTo(tx - (ds * 6), cy); ctx.stroke();
+        ctx.strokeStyle = "#000"; ctx.beginPath(); ctx.moveTo(tx - (ds * 6), cy); ctx.lineTo(tx, cy); ctx.stroke();
+
+        ctx.font = "bold 20px Arial"; ctx.fillStyle = "#fff"; ctx.fillText(`NIVÅ: ${lvl}  |  POÄNG: ${score}`, 20, 40);
+    }
+}
+
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
 </body>
 </html>
