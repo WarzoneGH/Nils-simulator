@@ -1,147 +1,126 @@
-import pygame
-import sys
-import random
-import math
+import pygame, sys, math, random
 
-# Initialisera Pygame
 pygame.init()
-
-# Skärminställningar
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Nils Simulator")
-
-# Färger
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-BLUE = (50, 150, 255)      # Nils färg
-RED = (255, 50, 50)        # Folkets färg
-GRAY = (120, 120, 120)      # Pennans färg
-YELLOW = (255, 220, 100)    # Pennspetsen
-
-# Klocka för FPS
+W, H = 800, 600
+screen = pygame.display.set_mode((W, H))
+pygame.display.set_caption("Nils Mario Simulator")
 clock = pygame.time.Clock()
-FPS = 60
 
-# Spelare (Nils) inställningar
-player_pos = [SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2]
-player_radius = 25
-player_speed = 5
+class Platform:
+    def __init__(self, x, y, w, h): self.rect = pygame.Rect(x, y, w, h)
+    def draw(self, surf, cam_x):
+        pygame.draw.rect(surf, (0,168,0), (self.rect.x - cam_x, self.rect.y, self.rect.w, self.rect.h))
+        pygame.draw.rect(surf, (0,0,0), (self.rect.x - cam_x, self.rect.y, self.rect.w, self.rect.h), 2)
 
-# Penna inställningar
-pen_length = 40
-pen_width = 8
-is_stabbing = False
-stab_progress = 0
-stab_speed = 0.2  # Hur snabbt hugget animeras
+class Stefan:
+    def __init__(self, x, y):
+        self.x, self.y, self.w, self.h = x, y, 30, 40
+        self.speed, self.dir, self.hp, self.max_hp = 2, 1, 3, 3
+        self.rect = pygame.Rect(x, y, self.w, self.h)
+    def update(self, plats):
+        self.x += self.speed * self.dir
+        self.rect.x = self.x
+        if self.x < 100 or self.x > 2000: self.dir *= -1
+        self.y += 4
+        self.rect.y = self.y
+        for p in plats:
+            if self.rect.colliderect(p.rect) and self.y + self.h - 4 <= p.rect.top:
+                self.y = p.rect.top - self.h
+                self.rect.y = self.y
+    def draw(self, surf, cam_x):
+        dx = self.x - cam_x
+        pygame.draw.rect(surf, (255,100,100), (dx, self.y + 15, self.w, self.h - 15))
+        pygame.draw.circle(surf, (168,68,0), (int(dx + self.w//2), int(self.y + 10)), 12)
+        pygame.draw.circle(surf, (0,0,0), (int(dx + self.w//2 - 4), int(self.y + 8)), 2)
+        pygame.draw.circle(surf, (0,0,0), (int(dx + self.w//2 + 4), int(self.y + 8)), 2)
+        pygame.draw.rect(surf, (0,0,0), (dx, self.y - 12, 30, 6))
+        pygame.draw.rect(surf, (255,0,0), (dx, self.y - 12, int((30/self.max_hp)*self.hp), 6))
 
-# Poäng och Fiender (Folk)
-score = 0
-enemies = []
-enemy_radius = 20
-enemy_spawn_timer = 0
+class NilsPlayer:
+    def __init__(self):
+        self.x, self.y, self.w, self.h = 200, 300, 30, 50
+        self.vx, self.vy, self.speed, self.jump = 0, 0, 5, -13
+        self.grounded, self.right = False, True
+        self.rect = pygame.Rect(self.x, self.y, self.w, self.h)
+        self.stab, self.progress, self.stab_spd, self.length = False, 0.0, 0.2, 35
+    def move(self, keys, plats):
+        self.vx = 0
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]: self.vx, self.right = -self.speed, False
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]: self.vx, self.right = self.speed, True
+        if (keys[pygame.K_w] or keys[pygame.K_SPACE]) and self.grounded: self.vy, self.grounded = self.jump, False
+        self.vy += 0.6
+        self.x += self.vx
+        self.rect.x = self.x
+        for p in plats:
+            if self.rect.colliderect(p.rect):
+                if self.vx > 0: self.rect.right = p.rect.left
+                elif self.vx < 0: self.rect.left = p.rect.right
+                self.x = self.rect.x
+        self.y += self.vy
+        self.rect.y = self.y
+        self.grounded = False
+        for p in plats:
+            if self.rect.colliderect(p.rect):
+                if self.vy > 0: self.rect.bottom, self.vy, self.grounded = p.rect.top, 0, True
+                elif self.vy < 0: self.rect.top, self.vy = p.rect.bottom, 0
+                self.y = self.rect.y
+        if self.y > H: self.x, self.y, self.vy = 200, 300, 0
+    def attack(self, enemies):
+        cur_len = self.length
+        if self.stab:
+            self.progress += self.stab_spd
+            cur_len += math.sin(self.progress * math.pi) * 25
+            if self.progress >= 1.0: self.stab = False
+        cy = self.y + self.h // 2
+        tip_x = self.x + self.w + cur_len if self.right else self.x - cur_len
+        if self.stab and self.progress <= self.stab_spd * 1.5:
+            for e in enemies[:]:
+                hr = pygame.Rect(min(self.x + self.w, tip_x) if self.right else tip_x, cy - 5, cur_len, 10)
+                if hr.colliderect(e.rect):
+                    e.hp -= 1
+                    self.stab = False
+                    if e.hp <= 0: enemies.remove(e)
+                    break
+    def draw(self, surf, cam_x):
+        dx = self.x - cam_x
+        pygame.draw.rect(surf, (0,0,180), (dx, self.y + 25, self.w, 25))
+        pygame.draw.rect(surf, (228,0,0), (dx, self.y + 10, self.w, 15))
+        pygame.draw.circle(surf, (255,200,150), (int(dx + self.w//2), int(self.y + 5)), 10)
+        pygame.draw.rect(surf, (228,0,0), (dx + 2, self.y - 8, self.w - 4, 6))
+        ex = dx + (self.w // 2 + 4 if self.right else self.w // 2 - 6)
+        pygame.draw.circle(surf, (0,0,0), (int(ex), int(self.y + 3)), 2)
+        cy = self.y + self.h // 2 + 5
+        cur_len = self.length + (math.sin(self.progress * math.pi) * 25 if self.stab else 0)
+        bx = dx + self.w if self.right else dx
+        tx = bx + cur_len if self.right else bx - cur_len
+        pygame.draw.line(surf, (120,70,30), (bx, cy), (tx, cy), 6)
+        pygame.draw.circle(surf, (0,0,0), (int(tx), int(cy)), 3)
 
-def spawn_enemy():
-    """Skapar en ny person på ett slumpmässigt ställe utanför skärmen eller en bit bort"""
-    x = random.randint(enemy_radius, SCREEN_WIDTH - enemy_radius)
-    y = random.randint(enemy_radius, SCREEN_HEIGHT - enemy_radius)
-    # Se till att de inte spawnar direkt på spelaren
-    while math.hypot(x - player_pos[0], y - player_pos[1]) < 150:
-        x = random.randint(enemy_radius, SCREEN_WIDTH - enemy_radius)
-        y = random.randint(enemy_radius, SCREEN_HEIGHT - enemy_radius)
-    enemies.append([x, y])
+player = NilsPlayer()
+platforms = [Platform(0, 520, 1200, 80), Platform(1400, 520, 1000, 80), Platform(300, 400, 150, 30), Platform(550, 320, 200, 30), Platform(850, 400, 150, 30), Platform(1550, 400, 250, 30)]
+stefans = [Stefan(400, 450), Stefan(600, 250), Stefan(1000, 450), Stefan(1600, 350)]
+cam_x = 0
 
-# Spelloop
-running = True
-while running:
-    screen.fill(WHITE)
-    
-    # Hantera event
+while True:
+    screen.fill((107, 140, 255))
     for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1 and not is_stabbing:  # Vänsterklick för att hugga
-                is_stabbing = True
-                stab_progress = 0.0
-
-    # Rörelse för Nils (WASD eller Piltangenter)
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-        player_pos[0] -= player_speed
-    if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-        player_pos[0] += player_speed
-    if keys[pygame.K_w] or keys[pygame.K_UP]:
-        player_pos[1] -= player_speed
-    if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-        player_pos[1] += player_speed
-
-    # Håll Nils inom skärmens gränser
-    player_pos[0] = max(player_radius, min(SCREEN_WIDTH - player_radius, player_pos[0]))
-    player_pos[1] = max(player_radius, min(SCREEN_HEIGHT - player_radius, player_pos[1]))
-
-    # Räkna ut vinkel mot muspekaren för pennan
-    mouse_x, mouse_y = pygame.mouse.get_pos()
-    angle = math.atan2(mouse_y - player_pos[1], mouse_x - player_pos[0])
-
-    # Hantera hugg-animation och logik
-    current_pen_length = pen_length
-    if is_stabbing:
-        stab_progress += stab_speed
-        # Skapar en fram-och-tillbaka effekt för hugget
-        current_pen_length += math.sin(stab_progress * math.pi) * 30 
-        if stab_progress >= 1.0:
-            is_stabbing = False
-
-    # Beräkna pennspetsens position (för kollisionsdetektion)
-    pen_tip_x = player_pos[0] + math.cos(angle) * (player_radius + current_pen_length)
-    pen_tip_y = player_pos[1] + math.sin(angle) * (player_radius + current_pen_length)
-
-    # Spawnar folk automatiskt över tid
-    enemy_spawn_timer += 1
-    if enemy_spawn_timer > 60 and len(enemies) < 10:  # Max 10 personer samtidigt
-        spawn_enemy()
-        enemy_spawn_timer = 0
-
-    # Kolla om pennan träffar folket under ett hugg
-    if is_stabbing:
-        for enemy in enemies[:]:
-            distance_to_tip = math.hypot(enemy[0] - pen_tip_x, enemy[1] - pen_tip_y)
-            if distance_to_tip <= enemy_radius:
-                enemies.remove(enemy)
-                score += 1
-
-    # Rita folket
-    for enemy in enemies:
-        pygame.draw.circle(screen, RED, (enemy[0], enemy[1]), enemy_radius)
-        # Rita enkla ögon på folket
-        pygame.draw.circle(screen, BLACK, (enemy[0] - 5, enemy[1] - 5), 2)
-        pygame.draw.circle(screen, BLACK, (enemy[0] + 5, enemy[1] - 5), 2)
-
-    # Rita Nils (Spelaren)
-    pygame.draw.circle(screen, BLUE, (player_pos[0], player_pos[1]), player_radius)
+        if event.type == pygame.QUIT: pygame.quit(); sys.exit()
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not player.stab: player.stab, player.progress = True, 0.0
     
-    # Rita Nils ögon som tittar mot muspekaren
-    eye_offset_x = math.cos(angle) * 8
-    eye_offset_y = math.sin(angle) * 8
-    pygame.draw.circle(screen, BLACK, (int(player_pos[0] + eye_offset_x - 5), int(player_pos[1] + eye_offset_y)), 3)
-    pygame.draw.circle(screen, BLACK, (int(player_pos[0] + eye_offset_x + 5), int(player_pos[1] + eye_offset_y)), 3)
-
-    # Rita pennan (som ett streck/rektangel ut från Nils)
-    pen_base_x = player_pos[0] + math.cos(angle) * player_radius
-    pen_base_y = player_pos[1] + math.sin(angle) * player_radius
-    pygame.draw.line(screen, GRAY, (pen_base_x, pen_base_y), (pen_tip_x, pen_tip_y), pen_width)
-    pygame.draw.circle(screen, YELLOW, (int(pen_tip_x), int(pen_tip_y)), 3)  # Pennspets
-
-    # UI - Visa poäng
-    font = pygame.font.SysFont("Arial", 30)
-    score_text = font.render(f"Hugget folk: {score}", True, BLACK)
-    screen.blit(score_text, (20, 20))
-
-    # Uppdatera skärmen
+    player.move(pygame.key.get_pressed(), platforms)
+    player.attack(stefans)
+    for s in stefans: s.update(platforms)
+    
+    if player.x - cam_x > 500: cam_x = player.x - 500
+    elif player.x - cam_x < 200: cam_x = max(0, player.x - 200)
+    
+    for p in platforms: p.draw(screen, cam_x)
+    for s in stefans: s.draw(screen, cam_x)
+    player.draw(screen, cam_x)
+    
+    font = pygame.font.SysFont("Arial", 22)
+    screen.blit(font.render("Styr: A/D/Pilar | Hoppa: W/Space | Hugg: Vänsterklick", True, (255,255,255)), (20, 20))
+    screen.blit(font.render(f"Stefans kvar: {len(stefans)}", True, (255,255,255)), (20, 45))
+    
     pygame.display.flip()
-    clock.tick(FPS)
-
-pygame.quit()
-sys.exit()
+    clock.tick(60)
