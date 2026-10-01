@@ -19,7 +19,6 @@ BLUE = (50, 150, 255)      # Nils färg
 RED = (255, 50, 50)        # Folkets färg
 GRAY = (120, 120, 120)      # Pennans färg
 YELLOW = (255, 220, 100)    # Pennspetsen
-GREEN = (50, 200, 50)       # UI-text
 
 # Klocka för FPS
 clock = pygame.time.Clock()
